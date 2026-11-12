@@ -23,19 +23,24 @@ void main() {
         ['20 minute yoga nidra', '40 minute yoga nidra', 'HIIT music']);
     expect(lib.byName('40 minute yoga nidra')!.shuffleMode, ShuffleMode.one);
     expect(lib.byName('HIIT music')!.shuffleMode, ShuffleMode.continuous);
-    expect(lib.playlists.every((p) => p.overlayId == null), isTrue);
+    // Naps start with pink noise on; the workout playlist with none.
+    expect(lib.byName('20 minute yoga nidra')!.overlayId, 'pink');
+    expect(lib.byName('40 minute yoga nidra')!.overlayId, 'pink');
+    expect(lib.byName('HIIT music')!.overlayId, isNull);
   });
 
   test('overlay, volume and shuffle mode are remembered per playlist', () {
     var lib = open();
-    lib.setOverlay(lib.byName('40 minute yoga nidra')!, 'pink');
-    lib.setOverlayVolume(lib.byName('40 minute yoga nidra')!, 0.2);
+    lib.setOverlay(lib.byName('40 minute yoga nidra')!, null);
+    lib.setOverlay(lib.byName('HIIT music')!, 'pink');
+    lib.setOverlayVolume(lib.byName('HIIT music')!, 0.2);
     lib.setShuffleMode(lib.byName('20 minute yoga nidra')!, ShuffleMode.continuous);
 
     lib = open(); // "relaunch"
-    expect(lib.byName('40 minute yoga nidra')!.overlayId, 'pink');
-    expect(lib.byName('40 minute yoga nidra')!.overlayVolume, 0.2);
-    expect(lib.byName('HIIT music')!.overlayId, isNull);
+    expect(lib.byName('40 minute yoga nidra')!.overlayId, isNull,
+        reason: 'turning it off sticks; the default is not re-applied');
+    expect(lib.byName('HIIT music')!.overlayId, 'pink');
+    expect(lib.byName('HIIT music')!.overlayVolume, 0.2);
     expect(lib.byName('20 minute yoga nidra')!.shuffleMode, ShuffleMode.continuous);
   });
 

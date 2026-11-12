@@ -9,6 +9,7 @@
 //   logs      debugPrint only (visible in `flutter run` / Console.app)
 import 'dart:io';
 
+import 'package:app_links/app_links.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
@@ -35,7 +36,28 @@ Future<void> main() async {
       androidNotificationOngoing: true,
     ),
   );
+  // Delivers the link that launched the app as well as later ones.
+  AppLinks().uriLinkStream.listen(
+    handleLink,
+    onError: (Object e) => debugPrint('Link error: $e'),
+  );
   runApp(const AudioPlayerApp());
+}
+
+/// `audioplayer://shuffle?playlist=<name>` starts shuffle play of that
+/// playlist (name matched ignoring case), exactly like its shuffle button. It lets a
+/// Shortcuts icon, the Action button or an automation start a nap or a
+/// workout without touching the app.
+void handleLink(Uri uri) {
+  if (uri.scheme != 'audioplayer' || uri.host != 'shuffle') return;
+  final wanted = (uri.queryParameters['playlist'] ?? '').trim().toLowerCase();
+  for (final p in library.playlists) {
+    if (p.name.toLowerCase() == wanted) {
+      player.playShuffled(p);
+      return;
+    }
+  }
+  debugPrint('Link names no playlist here: $uri');
 }
 
 class AudioPlayerApp extends StatefulWidget {

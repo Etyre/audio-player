@@ -18,7 +18,7 @@ used with it.
   re-read on launch and every time the app returns to the foreground.
 - **First launch** creates `20 minute yoga nidra`, `40 minute yoga nidra`
   (both "one, then stop") and `HIIT music` ("keep going"). A flag in
-  preferences (`seeded`) stops a deleted one from coming back.
+  preferences (`seedVersion`) stops a deleted one from coming back.
 - **Home screen**: one card per playlist. Tap the card to open it; the wave
   button opens the overlay sheet for that playlist; the shuffle button plays
   a random track from it straight away. A bar at the bottom shows the loaded
@@ -41,6 +41,17 @@ used with it.
   playlist the moment they change, which is how each playlist remembers its
   overlay. Adding another overlay is one line in `overlays` in
   `lib/library.dart` plus a file in `assets/overlays/`.
+- **Fewest taps for the two real uses** (nap: one random yoga nidra with
+  pink noise; cardio intervals: shuffled music). Both are one tap on the
+  playlist's shuffle button, because the shuffle setting and the overlay are
+  already stored on the playlist; the yoga nidra playlists start with pink
+  noise on. To skip opening the app as well, the link
+  `audioplayer://shuffle?playlist=40%20minute%20yoga%20nidra` (any playlist
+  name, case ignored, spaces as `%20`) does exactly what that button does.
+  In the Shortcuts app, make a shortcut with one *Open URLs* action holding
+  that link, then put it on the home screen, the Action button, a Back Tap,
+  or say its name to Siri: one press from anywhere starts the nap or the
+  workout.
 - **Background**: `audio_service` + the `audio` background mode keep playback
   going with the screen locked and give lock-screen / headphone controls.
 - **Drafts**: the only text field is the new-playlist name. It is saved on
@@ -53,13 +64,14 @@ used with it.
 Dependencies and why: `just_audio` (two players at once, looping, seeking),
 `audio_service` + `audio_session` (background playback and lock-screen
 controls), `file_picker` (adding tracks), `path_provider`,
-`shared_preferences`.
+`shared_preferences`, `app_links` (receives the `audioplayer://` link on both
+platforms without native code).
 
 ## Files
 
 | File | Purpose |
 |---|---|
-| `lib/main.dart` | Startup, globals (`library`, `player`, `prefs`), theme, rescan on resume |
+| `lib/main.dart` | Startup, globals (`library`, `player`, `prefs`), theme, rescan on resume, the `audioplayer://` link |
 | `lib/library.dart` | Playlists as folders, per-playlist settings, the list of overlays |
 | `lib/player.dart` | Track player + overlay player, what happens when a track ends, lock-screen state |
 | `lib/shuffle.dart` | Random order without repeats |
@@ -80,7 +92,7 @@ controls), `file_picker` (adding tracks), `path_provider`,
 - On the phone: tracks in `Documents/Playlists/<name>/` inside the app's
   container (visible in the Files app); settings in the app's
   SharedPreferences (`playlist.<name>` = shuffle mode, overlay, overlay
-  volume; `playlistOrder`; `seeded`; `draft.newPlaylistName`).
+  volume; `playlistOrder`; `seedVersion`; `draft.newPlaylistName`).
 - On the Mac: loudness-matched copies in
   `~/Library/Application Support/AudioPlayer/normalized/<playlist>/`. The
   yoga nidra originals are in iCloud Drive › `Yoga Nidras` and are untouched.
@@ -105,7 +117,9 @@ tool/normalize.py ~/Library/Application\ Support/AudioPlayer/normalized/"HIIT mu
 tool/push_music.sh "HIIT music" ~/Library/Application\ Support/AudioPlayer/normalized/"HIIT music"
 tool/push_music.sh --sim "HIIT music" some.mp3         # same, into the simulator
 
-flutter build apk --release                            # Android build
+xcrun simctl openurl booted "audioplayer://shuffle?playlist=HIIT%20music"   # try the link (simulator asks to confirm)
+
+flutter build apk --release                            # Android build (needs a JDK, see Gotchas)
 ```
 
 `--measure` prints each file's loudness and peak first. Pick a `--target`
@@ -140,4 +154,13 @@ music can take about -16).
   which is what caps the common level (-26 LUFS for the yoga nidras).
 - `file_picker` with `FileType.audio` opens the Music library on iOS, not
   Files; the app uses `FileType.custom` with extensions instead.
-- Not yet verified on a real Android device (the debug APK builds).
+- Android has never been built or run: this Mac has no Java runtime, so
+  Gradle stops at "Unable to locate a Java Runtime". Install a JDK
+  (`brew install --cask temurin`) before `flutter build apk`. The manifest
+  entries for `audio_service` and the link are in place but untested.
+- `xcrun simctl openurl` shows an "Open in Audio Player?" dialog that cannot
+  be accepted from the command line, so delivery of the link by the OS is
+  checked by hand; the integration test calls `handleLink` directly.
+- `Info.plist` has `FlutterDeepLinkingEnabled = false` (and the Android
+  manifest `flutter_deeplinking_enabled = false`): otherwise Flutter also
+  tries to treat the link as a route name for the Navigator.

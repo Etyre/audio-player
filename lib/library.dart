@@ -80,10 +80,13 @@ class Library extends ChangeNotifier {
   };
 
   /// Creates the starter playlists on the very first launch only, so one the
-  /// user deletes later stays deleted.
+  /// user deletes later stays deleted. "seedVersion" records which of these
+  /// one-time steps have run.
   void init() {
     root.createSync(recursive: true);
-    if (prefs.getBool('seeded') != true) {
+    final done = prefs.getInt('seedVersion') ??
+        (prefs.getBool('seeded') == true ? 1 : 0);
+    if (done < 1) {
       for (final e in _seed.entries) {
         Directory('${root.path}/${e.key}').createSync();
         if (prefs.getString('playlist.${e.key}') == null) {
@@ -92,8 +95,18 @@ class Library extends ChangeNotifier {
         }
       }
       prefs.setStringList('playlistOrder', _seed.keys.toList());
-      prefs.setBool('seeded', true);
     }
+    if (done < 2) {
+      // The yoga nidras are for naps with pink noise: start with it on, so
+      // the shuffle button alone is enough.
+      for (final name in _seed.keys.where((n) => n.contains('yoga nidra'))) {
+        final dir = Directory('${root.path}/$name');
+        if (!dir.existsSync()) continue;
+        final p = _load(name, dir);
+        if (p.overlayId == null) _save(p..overlayId = overlays.first.id);
+      }
+    }
+    prefs.setInt('seedVersion', 2);
     rescan();
   }
 

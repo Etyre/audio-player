@@ -136,6 +136,12 @@ void main() {
       await wait(() => app.player.overlayPlaying, 'overlay on mid-track');
       await app.player.pause();
       await wait(() => !app.player.overlayPlaying, 'overlay pauses with track');
+
+      // The link a Shortcut would open does the same as the shuffle button.
+      app.handleLink(
+          Uri.parse('audioplayer://shuffle?playlist=ZZ%20Integration%20TEST'));
+      await wait(() => app.player.playing, 'link starts shuffle play');
+      await wait(() => app.player.overlayPlaying, 'with its overlay');
     } finally {
       await app.player.clear();
       app.library.delete(app.library.byName(name)!);
