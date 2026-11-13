@@ -154,6 +154,11 @@ music can take about -16).
   It is 15.0 in `project.pbxproj`.
 - `BaseAudioHandler` already has a `queue` member; a field of that name in
   the handler is a compile error. Ours is `files`.
+- Plain pink noise sounded static-y. The loop is now pink noise with the top
+  rolled off (gentle slope from 1.2 kHz, hard cut at 6 kHz: about 11 dB less
+  above 4 kHz), at the same overall level. `SOFT_HZ=800 tool/gen_pink_noise.sh`
+  makes it darker still, a higher number brighter; audition on the Mac with
+  `afplay assets/overlays/pink_noise.wav`.
 - The pink-noise loop is a WAV on purpose: MP3 and AAC carry padding at both
   ends that would put a gap at every loop. The last 2 s are crossfaded into
   the first 2 s so the join is inaudible.
