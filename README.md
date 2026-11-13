@@ -52,6 +52,11 @@ used with it.
   that link, then put it on the home screen, the Action button, a Back Tap,
   or say its name to Siri: one press from anywhere starts the nap or the
   workout.
+- **Cover art**: if a file has an embedded picture (ID3, MP4 or FLAC tag) it
+  is shown in the track list, the mini player, the play screen and on the
+  lock screen. `lib/artwork.dart` extracts it once per track into the app's
+  cache folder (`art/`; a zero-length file there means "has none"). Tracks
+  without a picture show an icon. The seven yoga nidras have none.
 - **Background**: `audio_service` + the `audio` background mode keep playback
   going with the screen locked and give lock-screen / headphone controls.
 - **Drafts**: the only text field is the new-playlist name. It is saved on
@@ -64,7 +69,8 @@ used with it.
 Dependencies and why: `just_audio` (two players at once, looping, seeking),
 `audio_service` + `audio_session` (background playback and lock-screen
 controls), `file_picker` (adding tracks), `path_provider`,
-`shared_preferences`, `app_links` (receives the `audioplayer://` link on both
+`shared_preferences`, `audio_metadata_reader` (pure-Dart tag parser for the
+embedded cover art), `app_links` (receives the `audioplayer://` link on both
 platforms without native code).
 
 ## Files
@@ -75,6 +81,7 @@ platforms without native code).
 | `lib/library.dart` | Playlists as folders, per-playlist settings, the list of overlays |
 | `lib/player.dart` | Track player + overlay player, what happens when a track ends, lock-screen state |
 | `lib/shuffle.dart` | Random order without repeats |
+| `lib/artwork.dart` | Embedded cover art: extraction, cache, the `TrackArt` widget |
 | `lib/home_screen.dart` | Playlist cards, new-playlist dialog |
 | `lib/playlist_screen.dart` | One playlist: tracks, add/remove, shuffle setting |
 | `lib/play_screen.dart` | Now playing: seek bar, transport, overlay button |
@@ -84,7 +91,7 @@ platforms without native code).
 | `tool/normalize.py` | Make loudness-matched MP3 copies of a set of files |
 | `tool/gen_pink_noise.sh` | Regenerate the pink-noise loop |
 | `tool/gen_icon.swift` | Draw the app icon (waveform bars) at every iOS and Android size: `swift tool/gen_icon.swift` |
-| `test/` | Unit tests: shuffle order, playlist folders and settings |
+| `test/` | Unit tests: shuffle order, playlist folders and settings, cover extraction (`test/fixtures/` holds two 1-second MP3s, with and without a cover) |
 | `integration_test/app_test.dart` | End-to-end test on a simulator/phone with real audio |
 | `ios-deploy.conf` | Opts in to `../ios-auto-deploy`: every commit is installed on the iPhone |
 
@@ -150,6 +157,8 @@ music can take about -16).
 - The pink-noise loop is a WAV on purpose: MP3 and AAC carry padding at both
   ends that would put a gap at every loop. The last 2 s are crossfaded into
   the first 2 s so the join is inaudible.
+- `tool/normalize.py` re-encodes, and ffmpeg drops the embedded cover unless
+  the picture stream is mapped explicitly (`-map 0:v? -c:v copy`); it is.
 - Loudness matching uses one fixed gain per file, no compression. A quiet
   recording with a few loud peaks cannot be raised far without clipping,
   which is what caps the common level (-26 LUFS for the yoga nidras).

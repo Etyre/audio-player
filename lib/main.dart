@@ -5,6 +5,7 @@
 //
 // Where things live on the device:
 //   tracks    <app Documents>/Playlists/<playlist name>/*.mp3  (see library.dart)
+//   covers    <app cache>/art/  (extracted from the files, see artwork.dart)
 //   settings  SharedPreferences: "playlist.<name>", "playlistOrder", "draft.*"
 //   logs      debugPrint only (visible in `flutter run` / Console.app)
 import 'dart:io';
@@ -15,6 +16,7 @@ import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'artwork.dart';
 import 'home_screen.dart';
 import 'library.dart';
 import 'player.dart';
@@ -22,14 +24,17 @@ import 'player.dart';
 late final Library library;
 late final PlayerHandler player;
 late final SharedPreferences prefs;
+late final Artwork artwork;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   prefs = await SharedPreferences.getInstance();
   final docs = await getApplicationDocumentsDirectory();
   library = Library(Directory('${docs.path}/Playlists'), prefs)..init();
+  final cache = await getApplicationCacheDirectory();
+  artwork = Artwork(Directory('${cache.path}/art'));
   player = await AudioService.init(
-    builder: () => PlayerHandler(library),
+    builder: () => PlayerHandler(library, artwork),
     config: const AudioServiceConfig(
       androidNotificationChannelId: 'com.elityre.audio_player.playback',
       androidNotificationChannelName: 'Playback',

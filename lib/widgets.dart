@@ -2,6 +2,7 @@
 // and its sheet, the shuffle-mode picker, and the mini player bar.
 import 'package:flutter/material.dart';
 
+import 'artwork.dart';
 import 'library.dart';
 import 'main.dart';
 import 'play_screen.dart';
@@ -137,6 +138,8 @@ class MiniPlayer extends StatelessWidget {
                     fullscreenDialog: true,
                     builder: (_) => const PlayScreen()),
               ),
+              leading: TrackArt(track,
+                  size: 44, fallback: const Icon(Icons.music_note)),
               title: Text(titleOf(track),
                   maxLines: 1, overflow: TextOverflow.ellipsis),
               subtitle: Text(player.playlistName ?? '',

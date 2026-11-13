@@ -8,7 +8,8 @@ measure streaming services use) and one fixed gain is applied to the whole
 file to bring it to --target LUFS. Nothing is compressed: quiet and loud
 passages inside a recording keep their relation, only the recordings are
 matched to each other. The gain is reduced if it would push the true peak
-above -1 dBFS, and the script says so. Originals are never modified.
+above -1 dBFS, and the script says so. Tags and embedded cover art are
+kept. Originals are never modified.
 --measure only prints the measurements. Needs ffmpeg. Files whose output
 already exists are skipped, so rerunning after adding one file is cheap.
 """
@@ -55,7 +56,9 @@ def main():
               f"{'  (limited by peak, ends at %.1f LUFS)' % (loud + gain) if capped else ''}  {f.name}")
         out = a.out_dir / (f.stem + ".mp3")
         if not a.measure and not out.exists():
-            jobs.append(["ffmpeg", "-v", "error", "-y", "-i", str(f), "-vn",
+            # "0:v?" carries embedded cover art across untouched, when there is any.
+            jobs.append(["ffmpeg", "-v", "error", "-y", "-i", str(f),
+                         "-map", "0:a:0", "-map", "0:v?", "-c:v", "copy", "-id3v2_version", "3",
                          "-af", f"volume={gain:.2f}dB", "-c:a", "libmp3lame", "-b:a", "160k", str(out)])
     with ThreadPoolExecutor() as pool:
         for r in pool.map(lambda j: subprocess.run(j), jobs):

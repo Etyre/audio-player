@@ -13,15 +13,17 @@ import 'package:audio_session/audio_session.dart';
 import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
 
+import 'artwork.dart';
 import 'library.dart';
 import 'shuffle.dart';
 
 class PlayerHandler extends BaseAudioHandler with SeekHandler, ChangeNotifier {
-  PlayerHandler(this.library) {
+  PlayerHandler(this.library, this.artwork) {
     _init();
   }
 
   final Library library;
+  final Artwork artwork;
   final _player = AudioPlayer();
   final _overlay = AudioPlayer();
 
@@ -98,6 +100,15 @@ class PlayerHandler extends BaseAudioHandler with SeekHandler, ChangeNotifier {
     final f = files[i];
     mediaItem.add(MediaItem(id: f.path, title: titleOf(f), album: playlistName));
     notifyListeners();
+    // Cover for the lock screen, once it has been read from the file.
+    unawaited(artwork.of(f).then((art) {
+      final item = mediaItem.value;
+      if (art != null && item?.id == f.path) {
+        mediaItem.add(item!.copyWith(artUri: art.uri));
+      }
+    }).catchError((Object e) {
+      debugPrint('Cover error: $e');
+    }));
     try {
       await _player.setFilePath(f.path);
     } on PlayerInterruptedException {

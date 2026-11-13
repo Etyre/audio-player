@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
+import 'artwork.dart';
 import 'home_screen.dart' show shufflePlay;
 import 'library.dart';
 import 'main.dart';
@@ -156,11 +157,16 @@ class _PlaylistScreenState extends State<PlaylistScreen> {
                 ),
               for (final (i, f) in p.tracks.indexed)
                 ListTile(
-                  leading: Icon(
-                    f.path == current
-                        ? (player.playing ? Icons.volume_up : Icons.pause)
-                        : Icons.music_note,
-                    color: f.path == current ? theme.colorScheme.primary : null,
+                  leading: TrackArt(
+                    f,
+                    size: 44,
+                    fallback: Icon(
+                      f.path == current
+                          ? (player.playing ? Icons.volume_up : Icons.pause)
+                          : Icons.music_note,
+                      color:
+                          f.path == current ? theme.colorScheme.primary : null,
+                    ),
                   ),
                   title: Text(
                     titleOf(f),

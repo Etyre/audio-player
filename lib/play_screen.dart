@@ -2,6 +2,7 @@
 // overlay button for the playing playlist.
 import 'package:flutter/material.dart';
 
+import 'artwork.dart';
 import 'library.dart';
 import 'main.dart';
 import 'widgets.dart';
@@ -56,8 +57,12 @@ class _PlayScreenState extends State<PlayScreen> {
               child: Column(
                 children: [
                   const Spacer(),
-                  Icon(Icons.graphic_eq,
-                      size: 96, color: theme.colorScheme.primary),
+                  TrackArt(
+                    track,
+                    size: 260,
+                    fallback: Icon(Icons.graphic_eq,
+                        size: 96, color: theme.colorScheme.primary),
+                  ),
                   const Spacer(),
                   Text(titleOf(track),
                       textAlign: TextAlign.center,
