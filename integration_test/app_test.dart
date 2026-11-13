@@ -95,7 +95,7 @@ void main() {
       await tester.tap(find.text('tone b').last); // the mini player
       await tester.pump(const Duration(seconds: 1));
       expect(find.text('Stops when this song ends'), findsOneWidget);
-      expect(find.text('Pink noise'), findsOneWidget);
+      expect(find.byTooltip('Play Pink noise'), findsOneWidget);
       await tester.tap(find.byIcon(Icons.keyboard_arrow_down));
       await tester.pump(const Duration(seconds: 1));
       await tester.pageBack();
@@ -111,18 +111,26 @@ void main() {
       await wait(() => app.player.overlayPlaying, 'overlay playing');
       final first = app.player.index;
       await wait(() => !app.player.playing, 'stop after one song');
-      await wait(() => !app.player.overlayPlaying, 'overlay stops with it');
       expect(app.player.index, first, reason: 'did not move to another song');
       expect(app.player.position, Duration.zero);
+      // The overlay outlives the track, until its own control pauses it.
+      await tester.pump(const Duration(seconds: 1));
+      expect(app.player.overlayPlaying, isTrue);
+      app.player.toggleOverlay();
+      await wait(() => !app.player.overlayPlaying, 'overlay paused by itself');
+      expect(app.player.playing, isFalse);
+      app.player.toggleOverlay();
+      await wait(() => app.player.overlayPlaying, 'overlay played by itself');
 
       // The overlay choice was saved for this playlist.
       app.library.rescan();
       p = app.library.byName(name)!;
       expect(p.overlayId, 'pink');
 
-      // Mode 2: continue at random. Overlay off.
+      // Mode 2: continue at random. Choosing "Off" stops the overlay.
       app.library.setShuffleMode(p, ShuffleMode.continuous);
       app.library.setOverlay(p, null);
+      await wait(() => !app.player.overlayPlaying, 'Off stops the overlay');
       await app.player.playTrack(p, 0);
       await wait(() => app.player.playing, 'specific track playing');
       expect(app.player.index, 0);
@@ -131,11 +139,25 @@ void main() {
       await wait(() => app.player.index == 0, 'and on again');
       expect(app.player.playing, isTrue);
 
-      // Turning the overlay on mid-track starts it; pausing stops both.
+      // Turning the overlay on mid-track starts it. The track's own pause
+      // leaves it playing.
       app.library.setOverlay(p, 'pink');
       await wait(() => app.player.overlayPlaying, 'overlay on mid-track');
+      await app.player.pauseTrack();
+      await wait(() => !app.player.playing, 'track paused');
+      await tester.pump(const Duration(seconds: 1));
+      expect(app.player.overlayPlaying, isTrue);
+      app.player.resumeTrack();
+      await wait(() => app.player.playing, 'track resumed');
+
+      // The lock screen's single pause/play acts on both.
       await app.player.pause();
-      await wait(() => !app.player.overlayPlaying, 'overlay pauses with track');
+      await wait(() => !app.player.playing && !app.player.overlayPlaying,
+          'lock-screen pause silences both');
+      await app.player.play();
+      await wait(() => app.player.playing && app.player.overlayPlaying,
+          'lock-screen play resumes both');
+      await app.player.pause();
 
       // The link a Shortcut would open does the same as the shuffle button.
       app.handleLink(

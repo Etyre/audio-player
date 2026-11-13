@@ -36,12 +36,14 @@ void showOverlaySheet(BuildContext context, String playlistName) {
         final p = library.byName(playlistName);
         if (p == null) return const SizedBox.shrink();
         Widget option(String? id, String label) => ListTile(
-              leading: Icon(p.overlayId == id
-                  ? Icons.radio_button_checked
-                  : Icons.radio_button_unchecked),
-              title: Text(label),
-              onTap: () => library.setOverlay(p, id),
-            );
+          leading: Icon(
+            p.overlayId == id
+                ? Icons.radio_button_checked
+                : Icons.radio_button_unchecked,
+          ),
+          title: Text(label),
+          onTap: () => library.setOverlay(p, id),
+        );
         return SafeArea(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -50,8 +52,10 @@ void showOverlaySheet(BuildContext context, String playlistName) {
                 padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
                 child: Align(
                   alignment: Alignment.centerLeft,
-                  child: Text('Overlay for ${p.name}',
-                      style: Theme.of(context).textTheme.titleMedium),
+                  child: Text(
+                    'Overlay for ${p.name}',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
                 ),
               ),
               option(null, 'Off'),
@@ -59,22 +63,24 @@ void showOverlaySheet(BuildContext context, String playlistName) {
               if (p.overlayId != null)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(24, 0, 12, 0),
-                  child: Row(children: [
-                    const Icon(Icons.volume_down),
-                    Expanded(
-                      child: Slider(
-                        value: p.overlayVolume,
-                        onChanged: (v) => library.setOverlayVolume(p, v),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.volume_down),
+                      Expanded(
+                        child: Slider(
+                          value: p.overlayVolume,
+                          onChanged: (v) => library.setOverlayVolume(p, v),
+                        ),
                       ),
-                    ),
-                    const Icon(Icons.volume_up),
-                  ]),
+                      const Icon(Icons.volume_up),
+                    ],
+                  ),
                 ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(24, 4, 24, 16),
                 child: Text(
-                  'Plays underneath this playlist while a track is playing. '
-                  'Remembered for this playlist.',
+                  'Starts when this playlist starts and keeps playing until '
+                  'you pause it. Remembered for this playlist.',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ),
@@ -84,6 +90,35 @@ void showOverlaySheet(BuildContext context, String playlistName) {
       },
     ),
   );
+}
+
+/// The overlay's own play/pause bar, separate from the track's. Shown when
+/// the loaded playlist has an overlay chosen. Tapping the name opens the
+/// overlay sheet.
+class OverlayBar extends StatelessWidget {
+  const OverlayBar({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final def = player.overlayDef;
+    final name = player.playlistName;
+    if (def == null || name == null) return const SizedBox.shrink();
+    return ListTile(
+      dense: true,
+      onTap: () => showOverlaySheet(context, name),
+      leading: const SizedBox(width: 44, child: Icon(Icons.waves)),
+      title: Text(def.label),
+      subtitle: Text(player.overlayPlaying ? 'Playing' : 'Paused'),
+      trailing: IconButton(
+        iconSize: 32,
+        icon: Icon(player.overlayPlaying ? Icons.pause : Icons.play_arrow),
+        tooltip: player.overlayPlaying
+            ? 'Pause ${def.label}'
+            : 'Play ${def.label}',
+        onPressed: player.toggleOverlay,
+      ),
+    );
+  }
 }
 
 /// The two-way shuffle setting of a playlist.
@@ -116,7 +151,8 @@ class ShuffleModePicker extends StatelessWidget {
   }
 }
 
-/// Bottom bar showing the loaded track; tap to open the play screen.
+/// Bottom bars: the overlay's play/pause bar (when the loaded playlist has
+/// an overlay) above the loaded track's; tap the track to open the play screen.
 class MiniPlayer extends StatelessWidget {
   const MiniPlayer({super.key});
 
@@ -132,24 +168,42 @@ class MiniPlayer extends StatelessWidget {
           color: scheme.surfaceContainerHigh,
           child: SafeArea(
             top: false,
-            child: ListTile(
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                    fullscreenDialog: true,
-                    builder: (_) => const PlayScreen()),
-              ),
-              leading: TrackArt(track,
-                  size: 44, fallback: const Icon(Icons.music_note)),
-              title: Text(titleOf(track),
-                  maxLines: 1, overflow: TextOverflow.ellipsis),
-              subtitle: Text(player.playlistName ?? '',
-                  maxLines: 1, overflow: TextOverflow.ellipsis),
-              trailing: IconButton(
-                iconSize: 32,
-                icon: Icon(player.playing ? Icons.pause : Icons.play_arrow),
-                tooltip: player.playing ? 'Pause' : 'Play',
-                onPressed: player.playing ? player.pause : player.play,
-              ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const OverlayBar(),
+                ListTile(
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      fullscreenDialog: true,
+                      builder: (_) => const PlayScreen(),
+                    ),
+                  ),
+                  leading: TrackArt(
+                    track,
+                    size: 44,
+                    fallback: const Icon(Icons.music_note),
+                  ),
+                  title: Text(
+                    titleOf(track),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  subtitle: Text(
+                    player.playlistName ?? '',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  trailing: IconButton(
+                    iconSize: 32,
+                    icon: Icon(player.playing ? Icons.pause : Icons.play_arrow),
+                    tooltip: player.playing ? 'Pause' : 'Play',
+                    onPressed: player.playing
+                        ? player.pauseTrack
+                        : player.resumeTrack,
+                  ),
+                ),
+              ],
             ),
           ),
         );

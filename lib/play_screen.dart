@@ -127,7 +127,9 @@ class _PlayScreenState extends State<PlayScreen> {
                         icon: Icon(
                             player.playing ? Icons.pause : Icons.play_arrow),
                         tooltip: player.playing ? 'Pause' : 'Play',
-                        onPressed: player.playing ? player.pause : player.play,
+                        onPressed: player.playing
+                            ? player.pauseTrack
+                            : player.resumeTrack,
                       ),
                       IconButton(
                         iconSize: 44,
@@ -138,14 +140,19 @@ class _PlayScreenState extends State<PlayScreen> {
                     ],
                   ),
                   const SizedBox(height: 28),
-                  if (p != null)
+                  if (p != null && p.overlayId == null)
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         OverlayButton(p),
                         const SizedBox(width: 12),
-                        Text(overlayById(p.overlayId)?.label ?? 'Overlay off'),
+                        const Text('Overlay off'),
                       ],
+                    ),
+                  if (p != null && p.overlayId != null)
+                    Card(
+                      clipBehavior: Clip.antiAlias,
+                      child: const OverlayBar(),
                     ),
                   const Spacer(),
                 ],

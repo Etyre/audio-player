@@ -2,9 +2,12 @@
 // for the overlay. Registered with audio_service so playback continues with
 // the screen locked and the lock screen / headphones can control it.
 //
-// The overlay follows the track: it sounds only while a track is playing and
-// goes quiet when playback pauses or ends, so "play a random song, then stop"
-// really ends in silence.
+// The overlay is independent of the track. It starts when a playlist that
+// has an overlay chosen starts playing, and from then on only its own
+// play/pause control (or choosing "Off") stops it: it keeps going when the
+// track is paused and after "play a random song, then stop" has ended, so
+// the pink noise carries on for the rest of a nap. The lock screen and
+// headphone buttons have a single play/pause, which acts on both together.
 import 'dart:async';
 import 'dart:io';
 
@@ -39,13 +42,20 @@ class PlayerHandler extends BaseAudioHandler with SeekHandler, ChangeNotifier {
   ShuffleBag? _bag;
   final List<int> _history = []; // tracks played before this one, for "previous"
   String? _loadedOverlayId;
+  String? _seenOverlayId; // the loaded playlist's overlay, as last seen
   bool _completing = false;
-  Future<void> _overlaySync = Future.value();
+  Future<void> _overlayQueue = Future.value();
+  // What the lock screen's pause button paused, for its play button to resume.
+  bool _resumeTrack = false;
+  bool _resumeOverlay = false;
 
   File? get track => index >= 0 && index < files.length ? files[index] : null;
   Playlist? get playlist => library.byName(playlistName);
   bool get playing => _player.playing;
   bool get overlayPlaying => _overlay.playing;
+
+  /// The overlay chosen for the loaded playlist, if any.
+  OverlayDef? get overlayDef => overlayById(playlist?.overlayId);
   Duration get position => _player.position;
   Duration? get duration => _player.duration;
   Stream<Duration> get positionStream => _player.positionStream;
@@ -64,8 +74,12 @@ class PlayerHandler extends BaseAudioHandler with SeekHandler, ChangeNotifier {
       if (item != null && d != null) mediaItem.add(item.copyWith(duration: d));
       notifyListeners();
     });
+    _overlay.playingStream.listen((_) {
+      _broadcast();
+      notifyListeners();
+    });
     // An overlay or volume change made in the UI lands in the library first.
-    library.addListener(_syncOverlay);
+    library.addListener(_onLibraryChanged);
   }
 
   // ---- starting playback -------------------------------------------------
@@ -77,6 +91,7 @@ class PlayerHandler extends BaseAudioHandler with SeekHandler, ChangeNotifier {
   /// Plays one specific track of the playlist.
   Future<void> playTrack(Playlist p, int i) async {
     _load(p, justPlayed: i);
+    _setOverlay(play: overlayDef != null);
     await _start(i);
   }
 
@@ -84,6 +99,7 @@ class PlayerHandler extends BaseAudioHandler with SeekHandler, ChangeNotifier {
   Future<void> playShuffled(Playlist p) async {
     if (p.tracks.isEmpty) return;
     _load(p);
+    _setOverlay(play: overlayDef != null);
     await _start(_bag!.next());
   }
 
@@ -92,6 +108,8 @@ class PlayerHandler extends BaseAudioHandler with SeekHandler, ChangeNotifier {
     files = List.of(p.tracks);
     _bag = ShuffleBag(files.length, last: justPlayed);
     _history.clear();
+    _seenOverlayId = p.overlayId;
+    _resumeTrack = _resumeOverlay = false;
   }
 
   Future<void> _start(int i) async {
@@ -125,19 +143,38 @@ class PlayerHandler extends BaseAudioHandler with SeekHandler, ChangeNotifier {
 
   // ---- transport ---------------------------------------------------------
 
-  @override
-  Future<void> play() async {
+  // The track's own controls (the buttons in the app).
+  void resumeTrack() {
     if (track != null) unawaited(_player.play());
   }
 
+  Future<void> pauseTrack() => _player.pause();
+
+  /// The overlay's own play/pause control.
+  void toggleOverlay() => _setOverlay(play: !_overlay.playing);
+
+  // Lock screen and headphone buttons: one control for everything audible.
   @override
-  Future<void> pause() => _player.pause();
+  Future<void> pause() async {
+    _resumeTrack = _player.playing;
+    _resumeOverlay = _overlay.playing;
+    _setOverlay(play: false);
+    await _player.pause();
+  }
+
+  @override
+  Future<void> play() async {
+    if (_resumeOverlay) _setOverlay(play: true);
+    if (_resumeTrack || !_resumeOverlay) resumeTrack();
+    _resumeTrack = _resumeOverlay = false;
+  }
 
   @override
   Future<void> seek(Duration position) => _player.seek(position);
 
   @override
   Future<void> stop() async {
+    _setOverlay(play: false);
     await _player.pause();
     await _player.seek(Duration.zero);
   }
@@ -169,6 +206,7 @@ class PlayerHandler extends BaseAudioHandler with SeekHandler, ChangeNotifier {
     files = [];
     index = -1;
     _history.clear();
+    _setOverlay(play: false);
     await _player.stop();
     mediaItem.add(null);
     notifyListeners();
@@ -193,10 +231,9 @@ class PlayerHandler extends BaseAudioHandler with SeekHandler, ChangeNotifier {
         _completing = true;
         _onCompleted().whenComplete(() => _completing = false);
       }
-      return; // the overlay keeps running across a track change
+      return;
     }
     _broadcast();
-    _syncOverlay();
     notifyListeners();
   }
 
@@ -214,29 +251,38 @@ class PlayerHandler extends BaseAudioHandler with SeekHandler, ChangeNotifier {
       await _player.seek(Duration.zero);
     }
     _broadcast();
-    _syncOverlay();
     notifyListeners();
   }
 
-  /// Makes the overlay player match: playing iff a track is playing and the
-  /// loaded playlist has an overlay chosen. Calls are queued so a quick
-  /// series of changes cannot interleave.
-  void _syncOverlay() {
-    _overlaySync = _overlaySync.then((_) async {
-      final p = playlist;
-      final def = overlayById(p?.overlayId);
+  void _onLibraryChanged() {
+    final id = playlist?.overlayId;
+    final changed = id != _seenOverlayId;
+    _seenOverlayId = id;
+    // Choosing an overlay while a track plays starts it; choosing "Off"
+    // stops it (inside _setOverlay); a volume change just passes through.
+    _setOverlay(play: changed && id != null && _player.playing ? true : null);
+  }
+
+  /// Loads the loaded playlist's overlay and its volume, then plays or
+  /// pauses it if [play] says so (null leaves it as it is). With no overlay
+  /// chosen it is always paused. Calls are queued so a quick series of
+  /// changes cannot interleave.
+  void _setOverlay({bool? play}) {
+    _overlayQueue = _overlayQueue.then((_) async {
+      final def = overlayDef;
       try {
-        if (def != null) {
-          if (_loadedOverlayId != def.id) {
-            await _overlay.setAsset(def.asset);
-            _loadedOverlayId = def.id;
-          }
-          await _overlay.setVolume(p!.overlayVolume);
+        if (def == null) {
+          if (_overlay.playing) await _overlay.pause();
+          return;
         }
-        final want = def != null && _player.playing;
-        if (want && !_overlay.playing) {
+        if (_loadedOverlayId != def.id) {
+          await _overlay.setAsset(def.asset);
+          _loadedOverlayId = def.id;
+        }
+        await _overlay.setVolume(playlist!.overlayVolume);
+        if (play == true && !_overlay.playing) {
           unawaited(_overlay.play());
-        } else if (!want && _overlay.playing) {
+        } else if (play == false && _overlay.playing) {
           await _overlay.pause();
         }
       } catch (e) {
@@ -246,7 +292,9 @@ class PlayerHandler extends BaseAudioHandler with SeekHandler, ChangeNotifier {
   }
 
   void _broadcast() {
-    final playing = _player.playing;
+    // Also "playing" while only the overlay sounds, so the lock screen
+    // offers pause for it.
+    final playing = _player.playing || _overlay.playing;
     playbackState.add(playbackState.value.copyWith(
       controls: [
         MediaControl.skipToPrevious,

@@ -34,13 +34,20 @@ used with it.
   "Continue" plays every track once before repeating any (`lib/shuffle.dart`).
   There is no play-in-order mode. Next = another random track; Previous =
   restart, or the track before if pressed in the first 3 seconds.
-- **Overlay**: a second audio player looping `assets/overlays/pink_noise.wav`
-  under the track, with its own volume slider. It sounds only while a track
-  is playing: pausing pauses it, and when "one, then stop" reaches the end the
-  noise stops too. The choice (off / pink noise) and volume are saved per
-  playlist the moment they change, which is how each playlist remembers its
-  overlay. Adding another overlay is one line in `overlays` in
-  `lib/library.dart` plus a file in `assets/overlays/`.
+- **Overlay**: a second audio player looping `assets/overlays/pink_noise.wav`,
+  independent of the track, with its own play/pause bar (above the track's
+  bar at the bottom of the home and playlist screens, and on the play
+  screen) and its own volume slider. It starts by itself when a playlist
+  that has an overlay chosen starts playing, and then only its own bar (or
+  choosing *Off*) stops it: pausing the track leaves it playing, and when
+  "one, then stop" reaches the end of a yoga nidra the noise carries on for
+  the rest of the nap. Starting a playlist whose overlay is *Off* stops it.
+  The lock screen and headphones have one play/pause button, so there it
+  acts on both: pause silences everything, play resumes what was paused.
+  The choice (off / pink noise) and volume are saved per playlist the moment
+  they change, which is how each playlist remembers its overlay; pausing the
+  bar does not change the remembered choice. Adding another overlay is one
+  line in `overlays` in `lib/library.dart` plus a file in `assets/overlays/`.
 - **Fewest taps for the two real uses** (nap: one random yoga nidra with
   pink noise; cardio intervals: shuffled music). Both are one tap on the
   playlist's shuffle button, because the shuffle setting and the overlay are
@@ -79,13 +86,13 @@ platforms without native code).
 |---|---|
 | `lib/main.dart` | Startup, globals (`library`, `player`, `prefs`), theme, rescan on resume, the `audioplayer://` link |
 | `lib/library.dart` | Playlists as folders, per-playlist settings, the list of overlays |
-| `lib/player.dart` | Track player + overlay player, what happens when a track ends, lock-screen state |
+| `lib/player.dart` | Track player + independent overlay player, what happens when a track ends, lock-screen state |
 | `lib/shuffle.dart` | Random order without repeats |
 | `lib/artwork.dart` | Embedded cover art: extraction, cache, the `TrackArt` widget |
 | `lib/home_screen.dart` | Playlist cards, new-playlist dialog |
 | `lib/playlist_screen.dart` | One playlist: tracks, add/remove, shuffle setting |
 | `lib/play_screen.dart` | Now playing: seek bar, transport, overlay button |
-| `lib/widgets.dart` | Overlay button + sheet, shuffle-setting picker, mini player |
+| `lib/widgets.dart` | Overlay button + sheet, the overlay's play/pause bar, shuffle-setting picker, mini player |
 | `assets/overlays/pink_noise.wav` | 60 s seamless pink-noise loop (made by `tool/gen_pink_noise.sh`) |
 | `tool/push_music.sh` | Copy audio from the Mac into a playlist on the phone or simulator |
 | `tool/normalize.py` | Make loudness-matched MP3 copies of a set of files |
