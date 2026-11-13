@@ -1,6 +1,6 @@
-// Generates the app icon: a pink play triangle over three waves (the pink
-// noise overlay) on a dark plum ground, drawn with CoreGraphics so it needs
-// nothing beyond Xcode's toolchain.
+// Generates the app icon: a waveform of seven rounded coral-to-pink bars on
+// an indigo-to-violet ground, drawn with CoreGraphics so it needs nothing
+// beyond Xcode's toolchain.
 //
 //   swift tool/gen_icon.swift
 //
@@ -28,45 +28,33 @@ func draw(size: Int) -> CGImage {
     let s = CGFloat(size) / 1000
     ctx.scaleBy(x: s, y: s)
 
+    // Ground: deep indigo to violet, corner to corner.
     let ground = CGGradient(colorsSpace: space,
-                            colors: [color(0x3B2230), color(0x170F14)] as CFArray,
+                            colors: [color(0x1B1440), color(0x5B2A86)] as CFArray,
                             locations: [0, 1])!
-    ctx.drawLinearGradient(ground, start: CGPoint(x: 0, y: 1000),
-                           end: CGPoint(x: 0, y: 0), options: [])
+    ctx.drawLinearGradient(ground, start: CGPoint(x: 0, y: 0),
+                           end: CGPoint(x: 1000, y: 1000), options: [])
 
-    // Play triangle with rounded corners (a thick round-joined stroke of the
-    // same colour around the filled shape does the rounding).
-    let pink = color(0xF2A7C3)
-    let tri = CGMutablePath()
-    tri.move(to: CGPoint(x: 400, y: 800))
-    tri.addLine(to: CGPoint(x: 400, y: 470))
-    tri.addLine(to: CGPoint(x: 680, y: 635))
-    tri.closeSubpath()
-    ctx.setLineJoin(.round)
-    ctx.setLineWidth(70)
-    ctx.setStrokeColor(pink)
-    ctx.setFillColor(pink)
-    ctx.addPath(tri)
-    ctx.drawPath(using: .fillStroke)
-
-    // Three waves underneath, fading downwards.
-    ctx.setLineCap(.round)
-    ctx.setLineWidth(38)
-    for (i, alpha) in [0.95, 0.6, 0.32].enumerated() {
-        let y = 330 - CGFloat(i) * 85
-        let wave = CGMutablePath()
-        wave.move(to: CGPoint(x: 220, y: y))
-        var x: CGFloat = 220
-        for k in 0..<4 {
-            let up: CGFloat = k % 2 == 0 ? 42 : -42
-            wave.addQuadCurve(to: CGPoint(x: x + 140, y: y),
-                              control: CGPoint(x: x + 70, y: y + up))
-            x += 140
-        }
-        ctx.addPath(wave)
-        ctx.setStrokeColor(color(0xF2A7C3, alpha))
-        ctx.strokePath()
+    // Seven rounded bars, mirrored about the middle line like a waveform,
+    // clipped out of one warm gradient (coral at the bottom to pink on top).
+    let heights: [CGFloat] = [180, 360, 560, 300, 640, 420, 220]
+    let barWidth: CGFloat = 72, gap: CGFloat = 38
+    let total = CGFloat(heights.count) * barWidth + CGFloat(heights.count - 1) * gap
+    let bars = CGMutablePath()
+    for (i, h) in heights.enumerated() {
+        let x = (1000 - total) / 2 + CGFloat(i) * (barWidth + gap)
+        bars.addRoundedRect(in: CGRect(x: x, y: 500 - h / 2, width: barWidth, height: h),
+                            cornerWidth: barWidth / 2, cornerHeight: barWidth / 2)
     }
+    ctx.saveGState()
+    ctx.addPath(bars)
+    ctx.clip()
+    let warm = CGGradient(colorsSpace: space,
+                          colors: [color(0xFF8A65), color(0xFF9EC4)] as CFArray,
+                          locations: [0, 1])!
+    ctx.drawLinearGradient(warm, start: CGPoint(x: 0, y: 180),
+                           end: CGPoint(x: 0, y: 820), options: [])
+    ctx.restoreGState()
     return ctx.makeImage()!
 }
 

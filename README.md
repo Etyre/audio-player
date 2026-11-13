@@ -83,7 +83,7 @@ platforms without native code).
 | `tool/push_music.sh` | Copy audio from the Mac into a playlist on the phone or simulator |
 | `tool/normalize.py` | Make loudness-matched MP3 copies of a set of files |
 | `tool/gen_pink_noise.sh` | Regenerate the pink-noise loop |
-| `tool/gen_icon.swift` | Draw the app icon (play triangle over waves) at every iOS and Android size: `swift tool/gen_icon.swift` |
+| `tool/gen_icon.swift` | Draw the app icon (waveform bars) at every iOS and Android size: `swift tool/gen_icon.swift` |
 | `test/` | Unit tests: shuffle order, playlist folders and settings |
 | `integration_test/app_test.dart` | End-to-end test on a simulator/phone with real audio |
 | `ios-deploy.conf` | Opts in to `../ios-auto-deploy`: every commit is installed on the iPhone |
